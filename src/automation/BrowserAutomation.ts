@@ -45,19 +45,20 @@ export class BrowserAutomation extends EventEmitter {
     }
 
     try {
-      if (chromeFound) {
+      if (chromeFound && hasUserData) {
         // Use the user's installed Chrome WITH their profile
         console.log('🚀 Launching YOUR Chrome with YOUR profile...');
 
         // IMPORTANT: Close your regular Chrome first if it's open!
         // Otherwise there will be a conflict
 
-        this.browser = await chromium.launch({
+        // Use launchPersistentContext for user profile (not launch + args)
+        this.context = await chromium.launchPersistentContext(userDataDir, {
           executablePath: chromePath,
           headless: false,
+          viewport: { width: 1920, height: 1080 },
+          userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           args: [
-            `--user-data-dir=${userDataDir}`, // Use YOUR Chrome profile
-            '--profile-directory=Default',     // Use your default profile
             '--disable-blink-features=AutomationControlled',
             '--disable-dev-shm-usage',
             '--no-first-run',
@@ -70,10 +71,12 @@ export class BrowserAutomation extends EventEmitter {
         console.log('✓ Successfully launched YOUR Chrome with YOUR profile!');
         console.log('✓ You should see your bookmarks, history, and be logged into Twitch!');
       } else {
-        // Chrome not found, use Chromium
-        console.log('⚠ Google Chrome not found on your system');
-        console.log('📍 Searched locations:');
-        chromePaths.forEach(p => console.log(`   - ${p}`));
+        // Chrome not found or no user data, use Chromium
+        if (!chromeFound) {
+          console.log('⚠ Google Chrome not found on your system');
+          console.log('📍 Searched locations:');
+          chromePaths.forEach(p => console.log(`   - ${p}`));
+        }
         console.log('Using Chromium instead...');
         this.browser = await chromium.launch({
           headless: false,
@@ -86,6 +89,10 @@ export class BrowserAutomation extends EventEmitter {
             '--disable-backgrounding-occluded-windows',
             '--disable-renderer-backgrounding'
           ]
+        });
+        this.context = await this.browser.newContext({
+          viewport: { width: 1920, height: 1080 },
+          userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         });
         console.log('Using Chromium browser');
       }
@@ -106,12 +113,11 @@ export class BrowserAutomation extends EventEmitter {
           '--disable-renderer-backgrounding'
         ]
       });
+      this.context = await this.browser.newContext({
+        viewport: { width: 1920, height: 1080 },
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      });
     }
-
-    this.context = await this.browser.newContext({
-      viewport: { width: 1920, height: 1080 },
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    });
 
     this.mainPage = await this.context.newPage();
 
@@ -152,13 +158,15 @@ export class BrowserAutomation extends EventEmitter {
       });
     }
 
-    // Prevent browser from closing accidentally
-    this.browser.on('disconnected', () => {
-      console.log('Browser disconnected!');
-    });
+    // Prevent browser from closing accidentally (only when using launch, not launchPersistentContext)
+    if (this.browser) {
+      this.browser.on('disconnected', () => {
+        console.log('Browser disconnected!');
+      });
+    }
 
     // Listen for new pages (potential raids)
-    this.context.on('page', async (page) => {
+    this.context!.on('page', async (page) => {
       console.log('New page detected:', await page.title());
     });
 
@@ -457,15 +465,21 @@ export class BrowserAutomation extends EventEmitter {
   async close(): Promise<void> {
     this.stopAutoDropCheck();
 
+    // Close context (works for both launch and launchPersistentContext)
+    if (this.context) {
+      await this.context.close();
+      this.context = null;
+      this.mainPage = null;
+    }
+
+    // Close browser if it exists (only when using launch, not launchPersistentContext)
     if (this.browser) {
       await this.browser.close();
       this.browser = null;
-      this.context = null;
-      this.mainPage = null;
     }
   }
 
   isReady(): boolean {
-    return this.browser !== null && this.isAuthenticated;
+    return this.context !== null && this.isAuthenticated;
   }
 }
