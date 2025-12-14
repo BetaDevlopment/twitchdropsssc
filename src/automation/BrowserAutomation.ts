@@ -11,11 +11,71 @@ export class BrowserAutomation extends EventEmitter {
   private checkInterval: NodeJS.Timeout | null = null;
 
   async initialize(): Promise<void> {
+    // Find Chrome executable on the system
+    const chromePaths = [
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+      process.env.LOCALAPPDATA + '\\Google\\Chrome\\Application\\chrome.exe'
+    ];
+
+    let chromeFound = false;
+    let chromePath = '';
+
+    // Check which Chrome path exists
+    const fs = require('fs');
+    for (const path of chromePaths) {
+      if (fs.existsSync(path)) {
+        chromePath = path;
+        chromeFound = true;
+        console.log(`✓ Found Google Chrome installed at: ${path}`);
+        break;
+      }
+    }
+
     try {
-      // Try to launch with system Chrome first
-      console.log('Trying to launch with system Chrome...');
+      if (chromeFound) {
+        // Use the user's installed Chrome
+        console.log('🚀 Launching YOUR installed Google Chrome...');
+        this.browser = await chromium.launch({
+          executablePath: chromePath, // Use the actual Chrome .exe file
+          headless: false,
+          args: [
+            '--disable-blink-features=AutomationControlled',
+            '--disable-dev-shm-usage',
+            '--no-first-run',
+            '--no-default-browser-check',
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-renderer-backgrounding'
+          ]
+        });
+        console.log('✓ Successfully launched with YOUR Google Chrome!');
+        console.log('✓ Chrome is now connected to the Twitch Drops program');
+      } else {
+        // Chrome not found, use Chromium
+        console.log('⚠ Google Chrome not found on your system');
+        console.log('📍 Searched locations:');
+        chromePaths.forEach(p => console.log(`   - ${p}`));
+        console.log('Using Chromium instead...');
+        this.browser = await chromium.launch({
+          headless: false,
+          args: [
+            '--disable-blink-features=AutomationControlled',
+            '--disable-dev-shm-usage',
+            '--no-first-run',
+            '--no-default-browser-check',
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-renderer-backgrounding'
+          ]
+        });
+        console.log('Using Chromium browser');
+      }
+    } catch (error: any) {
+      console.error('❌ Error launching browser:', error.message);
+      // Final fallback to Chromium
+      console.log('Falling back to Chromium...');
       this.browser = await chromium.launch({
-        channel: 'chrome', // Use system Chrome
         headless: false,
         args: [
           '--disable-blink-features=AutomationControlled',
@@ -27,23 +87,6 @@ export class BrowserAutomation extends EventEmitter {
           '--disable-renderer-backgrounding'
         ]
       });
-      console.log('Successfully launched with system Chrome!');
-    } catch (error) {
-      // Fallback to Chromium if Chrome not found
-      console.log('Chrome not found, using Chromium instead...');
-      this.browser = await chromium.launch({
-        headless: false,
-        args: [
-          '--disable-blink-features=AutomationControlled',
-          '--disable-dev-shm-usage',
-          '--no-first-run',
-          '--no-default-browser-check',
-          '--disable-background-timer-throttling',
-          '--disable-backgrounding-occluded-windows',
-          '--disable-renderer-backgrounding'
-        ]
-      });
-      console.log('Using Chromium browser');
     }
 
     this.context = await this.browser.newContext({
@@ -52,6 +95,43 @@ export class BrowserAutomation extends EventEmitter {
     });
 
     this.mainPage = await this.context.newPage();
+
+    // Show connection banner in Chrome when it opens
+    if (chromeFound) {
+      this.mainPage.once('load', async () => {
+        try {
+          await this.mainPage!.evaluate(() => {
+            const banner = document.createElement('div');
+            banner.style.cssText = `
+              position: fixed;
+              top: 0;
+              left: 0;
+              right: 0;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: white;
+              padding: 12px 20px;
+              text-align: center;
+              font-family: Arial, sans-serif;
+              font-size: 14px;
+              font-weight: bold;
+              z-index: 999999;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            `;
+            banner.innerHTML = '✓ Your Google Chrome is now connected to Twitch Drops Automation';
+            document.body.appendChild(banner);
+
+            // Fade out and remove banner after 5 seconds
+            setTimeout(() => {
+              banner.style.transition = 'opacity 0.5s';
+              banner.style.opacity = '0';
+              setTimeout(() => banner.remove(), 500);
+            }, 5000);
+          });
+        } catch (e) {
+          // Banner injection failed, not critical
+        }
+      });
+    }
 
     // Prevent browser from closing accidentally
     this.browser.on('disconnected', () => {
