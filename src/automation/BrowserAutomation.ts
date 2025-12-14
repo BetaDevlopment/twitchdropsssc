@@ -18,6 +18,11 @@ export class BrowserAutomation extends EventEmitter {
       process.env.LOCALAPPDATA + '\\Google\\Chrome\\Application\\chrome.exe'
     ];
 
+    // Find user's Chrome profile (where their data is stored)
+    const os = require('os');
+    const username = os.userInfo().username;
+    const userDataDir = `C:\\Users\\${username}\\AppData\\Local\\Google\\Chrome\\User Data`;
+
     let chromeFound = false;
     let chromePath = '';
 
@@ -32,14 +37,27 @@ export class BrowserAutomation extends EventEmitter {
       }
     }
 
+    // Check if user data directory exists
+    const hasUserData = fs.existsSync(userDataDir);
+    if (hasUserData) {
+      console.log(`✓ Found your Chrome profile at: ${userDataDir}`);
+      console.log(`✓ This will use YOUR Chrome with all your logins and history!`);
+    }
+
     try {
       if (chromeFound) {
-        // Use the user's installed Chrome
-        console.log('🚀 Launching YOUR installed Google Chrome...');
+        // Use the user's installed Chrome WITH their profile
+        console.log('🚀 Launching YOUR Chrome with YOUR profile...');
+
+        // IMPORTANT: Close your regular Chrome first if it's open!
+        // Otherwise there will be a conflict
+
         this.browser = await chromium.launch({
-          executablePath: chromePath, // Use the actual Chrome .exe file
+          executablePath: chromePath,
           headless: false,
           args: [
+            `--user-data-dir=${userDataDir}`, // Use YOUR Chrome profile
+            '--profile-directory=Default',     // Use your default profile
             '--disable-blink-features=AutomationControlled',
             '--disable-dev-shm-usage',
             '--no-first-run',
@@ -49,8 +67,8 @@ export class BrowserAutomation extends EventEmitter {
             '--disable-renderer-backgrounding'
           ]
         });
-        console.log('✓ Successfully launched with YOUR Google Chrome!');
-        console.log('✓ Chrome is now connected to the Twitch Drops program');
+        console.log('✓ Successfully launched YOUR Chrome with YOUR profile!');
+        console.log('✓ You should see your bookmarks, history, and be logged into Twitch!');
       } else {
         // Chrome not found, use Chromium
         console.log('⚠ Google Chrome not found on your system');
@@ -73,6 +91,7 @@ export class BrowserAutomation extends EventEmitter {
       }
     } catch (error: any) {
       console.error('❌ Error launching browser:', error.message);
+      console.log('💡 If Chrome is already open, CLOSE IT and try again!');
       // Final fallback to Chromium
       console.log('Falling back to Chromium...');
       this.browser = await chromium.launch({
@@ -98,6 +117,53 @@ export class BrowserAutomation extends EventEmitter {
 
     // Show connection banner in Chrome when it opens
     if (chromeFound) {
+      this.mainPage.once('load', async () => {
+        try {
+          await this.mainPage!.evaluate(() => {
+            const banner = document.createElement('div');
+            banner.style.cssText = `
+              position: fixed;
+              top: 0;
+              left: 0;
+              right: 0;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: white;
+              padding: 12px 20px;
+              text-align: center;
+              font-family: Arial, sans-serif;
+              font-size: 14px;
+              font-weight: bold;
+              z-index: 999999;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            `;
+            banner.innerHTML = '✓ Your Google Chrome is now connected to Twitch Drops Automation';
+            document.body.appendChild(banner);
+
+            // Fade out and remove banner after 5 seconds
+            setTimeout(() => {
+              banner.style.transition = 'opacity 0.5s';
+              banner.style.opacity = '0';
+              setTimeout(() => banner.remove(), 500);
+            }, 5000);
+          });
+        } catch (e) {
+          // Banner injection failed, not critical
+        }
+      });
+    }
+
+    // Prevent browser from closing accidentally
+    this.browser.on('disconnected', () => {
+      console.log('Browser disconnected!');
+    });
+
+    // Listen for new pages (potential raids)
+    this.context.on('page', async (page) => {
+      console.log('New page detected:', await page.title());
+    });
+
+    this.emit('initialized');
+  }
       this.mainPage.once('load', async () => {
         try {
           await this.mainPage!.evaluate(() => {
