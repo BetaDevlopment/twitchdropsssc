@@ -54,6 +54,11 @@ export class DropManager extends EventEmitter {
       console.log(`Closed raid tab for: ${streamer}`);
       this.emit('raidTabClosed', streamer);
     });
+
+    this.browser.on('2faRequired', () => {
+      console.log('2FA authentication required');
+      this.emit('2faRequired');
+    });
   }
 
   async initialize(): Promise<void> {
@@ -170,6 +175,46 @@ export class DropManager extends EventEmitter {
 
   getDropHistoryByGame(gameName: string) {
     return this.db.getDropHistoryByGame(gameName);
+  }
+
+  async syncAllTimeDrops(): Promise<number> {
+    console.log('Syncing all-time drops from Twitch account...');
+
+    try {
+      const historicalDrops = await this.api.getAllTimeDrops();
+
+      if (historicalDrops.length === 0) {
+        console.log('No historical drops found');
+        return 0;
+      }
+
+      let imported = 0;
+      for (const drop of historicalDrops) {
+        const twitchDrop: TwitchDrop = {
+          id: drop.id,
+          campaignId: drop.campaignId,
+          campaignName: drop.campaignName,
+          gameName: drop.gameName,
+          dropName: drop.dropName,
+          dropImage: drop.dropImage,
+          claimed: true,
+          claimedAt: drop.claimedAt,
+          requiredMinutes: 0,
+          earnedMinutes: 0,
+          streamerName: 'Historical Import'
+        };
+
+        this.db.addDropToHistory(twitchDrop);
+        imported++;
+      }
+
+      console.log(`Successfully imported ${imported} historical drops`);
+      this.emit('allTimeDropsSynced', imported);
+      return imported;
+    } catch (error) {
+      console.error('Error syncing all-time drops:', error);
+      return 0;
+    }
   }
 
   getTotalDropsClaimed(): number {

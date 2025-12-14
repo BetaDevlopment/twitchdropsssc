@@ -62,6 +62,14 @@ function setupIPC() {
         mainWindow?.webContents.send('campaigns:loaded', campaigns);
       });
 
+      dropManager.on('2faRequired', () => {
+        mainWindow?.webContents.send('2fa:required');
+      });
+
+      dropManager.on('allTimeDropsSynced', (count) => {
+        mainWindow?.webContents.send('allTimeDrops:synced', count);
+      });
+
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message };
@@ -207,6 +215,20 @@ function setupIPC() {
     try {
       configManager.removeSelectedCampaign(campaignId);
       return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Sync all-time drops from Twitch
+  ipcMain.handle('app:syncAllTimeDrops', async () => {
+    if (!dropManager) {
+      return { success: false, error: 'Not initialized' };
+    }
+
+    try {
+      const count = await dropManager.syncAllTimeDrops();
+      return { success: true, count };
     } catch (error: any) {
       return { success: false, error: error.message };
     }

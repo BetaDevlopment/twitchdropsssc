@@ -375,6 +375,38 @@ document.getElementById('login-btn').addEventListener('click', async () => {
   }
 });
 
+document.getElementById('sync-drops-btn').addEventListener('click', async () => {
+  const confirmed = confirm(
+    'This will import all drops you have ever claimed from your Twitch account.\n\n' +
+    'This may take a minute depending on how many drops you have.\n\n' +
+    'Continue?'
+  );
+
+  if (!confirmed) return;
+
+  const syncBtn = document.getElementById('sync-drops-btn');
+  syncBtn.disabled = true;
+  syncBtn.textContent = 'Syncing...';
+
+  const result = await ipcRenderer.invoke('app:syncAllTimeDrops');
+
+  syncBtn.disabled = false;
+  syncBtn.innerHTML = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+    </svg>
+    Sync All-Time Drops
+  `;
+
+  if (result.success) {
+    alert(`Successfully imported ${result.count} drops from your Twitch account!`);
+    loadStats();
+    loadRecentDrops();
+  } else {
+    alert('Failed to sync drops: ' + result.error);
+  }
+});
+
 // Settings toggles
 document.getElementById('auto-claim-toggle').addEventListener('change', async (e) => {
   await ipcRenderer.invoke('app:updateConfig', { autoClaimDrops: e.target.checked });
@@ -412,6 +444,20 @@ ipcRenderer.on('campaigns:loaded', (event, campaigns) => {
   console.log('Campaigns loaded:', campaigns);
   state.campaigns = campaigns;
   document.getElementById('active-campaigns').textContent = campaigns.length;
+});
+
+ipcRenderer.on('2fa:required', () => {
+  console.log('2FA required');
+  alert('Two-Factor Authentication Required!\n\nPlease enter your 2FA code in the Twitch login window that opened.');
+  showNotification('2FA Required', 'Please enter your 2FA code in the browser window');
+});
+
+ipcRenderer.on('allTimeDrops:synced', (event, count) => {
+  console.log(`Synced ${count} all-time drops`);
+  alert(`Successfully imported ${count} drops from your Twitch account history!`);
+  loadStats();
+  loadRecentDrops();
+  showNotification('Sync Complete', `Imported ${count} historical drops`);
 });
 
 // Update Current Activity

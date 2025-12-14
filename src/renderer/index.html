@@ -210,8 +210,22 @@
           <div class="form-group">
             <label for="password-input">Password</label>
             <input type="password" id="password-input" class="input" placeholder="Enter Twitch password">
+            <small style="color: var(--text-secondary); font-size: 12px; margin-top: 5px; display: block;">
+              If you have 2FA enabled, you'll be prompted to enter your code in the browser window.
+            </small>
           </div>
-          <button class="btn btn-primary" id="login-btn">Login to Twitch</button>
+          <div style="display: flex; gap: 10px;">
+            <button class="btn btn-primary" id="login-btn">Login to Twitch</button>
+            <button class="btn btn-secondary" id="sync-drops-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+              </svg>
+              Sync All-Time Drops
+            </button>
+          </div>
+          <small style="color: var(--text-secondary); font-size: 12px; margin-top: 10px; display: block;">
+            Click "Sync All-Time Drops" after logging in to import all drops you've ever claimed from Twitch.
+          </small>
         </div>
 
         <div class="settings-section">

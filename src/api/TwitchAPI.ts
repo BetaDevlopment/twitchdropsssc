@@ -229,4 +229,96 @@ export class TwitchAPI {
       return [];
     }
   }
+
+  async getAllTimeDrops(limit: number = 100): Promise<any[]> {
+    try {
+      const query = `
+        query($limit: Int!, $cursor: Cursor) {
+          currentUser {
+            inventory {
+              gameEventDrops(first: $limit, after: $cursor) {
+                edges {
+                  node {
+                    id
+                    dropInstanceID
+                    dropType
+                    game {
+                      id
+                      displayName
+                      boxArtURL
+                    }
+                    benefitEdges {
+                      benefit {
+                        id
+                        name
+                        imageAssetURL
+                      }
+                      entitlementLimit
+                    }
+                    campaign {
+                      id
+                      name
+                      game {
+                        displayName
+                      }
+                    }
+                    self {
+                      redemptionURL
+                    }
+                    lastAwardedAt
+                  }
+                  cursor
+                }
+                pageInfo {
+                  hasNextPage
+                }
+              }
+            }
+          }
+        }
+      `;
+
+      let allDrops: any[] = [];
+      let cursor: string | null = null;
+      let hasMore = true;
+      let iterations = 0;
+      const maxIterations = 10; // Fetch up to 1000 drops (100 per page)
+
+      while (hasMore && iterations < maxIterations) {
+        const response = await this.gqlClient.post('', {
+          query,
+          variables: { limit, cursor }
+        });
+
+        const data = response.data.data.currentUser?.inventory?.gameEventDrops;
+        if (!data || !data.edges || data.edges.length === 0) {
+          break;
+        }
+
+        const drops = data.edges.map((edge: any) => ({
+          id: edge.node.id,
+          dropInstanceId: edge.node.dropInstanceID,
+          gameName: edge.node.game?.displayName || edge.node.campaign?.game?.displayName || 'Unknown',
+          gameImage: edge.node.game?.boxArtURL || '',
+          campaignId: edge.node.campaign?.id || 'unknown',
+          campaignName: edge.node.campaign?.name || 'Unknown Campaign',
+          dropName: edge.node.benefitEdges?.[0]?.benefit?.name || 'Unknown Drop',
+          dropImage: edge.node.benefitEdges?.[0]?.benefit?.imageAssetURL || '',
+          claimedAt: edge.node.lastAwardedAt ? new Date(edge.node.lastAwardedAt) : new Date()
+        }));
+
+        allDrops = allDrops.concat(drops);
+
+        hasMore = data.pageInfo.hasNextPage;
+        cursor = data.edges[data.edges.length - 1]?.cursor || null;
+        iterations++;
+      }
+
+      console.log(`Fetched ${allDrops.length} historical drops from Twitch`);
+      return allDrops;
+    } catch (error) {
+      console.error('Error fetching all-time drops:', error);
+      return [];
+    }
+  }
 }
