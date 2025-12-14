@@ -11,18 +11,40 @@ export class BrowserAutomation extends EventEmitter {
   private checkInterval: NodeJS.Timeout | null = null;
 
   async initialize(): Promise<void> {
-    // Launch Chrome using system installation (not Chromium)
-    // This will use your regular Chrome browser
-    this.browser = await chromium.launch({
-      channel: 'chrome', // Use system Chrome instead of Chromium
-      headless: false,
-      args: [
-        '--disable-blink-features=AutomationControlled',
-        '--disable-dev-shm-usage',
-        '--no-first-run',
-        '--no-default-browser-check'
-      ]
-    });
+    try {
+      // Try to launch with system Chrome first
+      console.log('Trying to launch with system Chrome...');
+      this.browser = await chromium.launch({
+        channel: 'chrome', // Use system Chrome
+        headless: false,
+        args: [
+          '--disable-blink-features=AutomationControlled',
+          '--disable-dev-shm-usage',
+          '--no-first-run',
+          '--no-default-browser-check',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding'
+        ]
+      });
+      console.log('Successfully launched with system Chrome!');
+    } catch (error) {
+      // Fallback to Chromium if Chrome not found
+      console.log('Chrome not found, using Chromium instead...');
+      this.browser = await chromium.launch({
+        headless: false,
+        args: [
+          '--disable-blink-features=AutomationControlled',
+          '--disable-dev-shm-usage',
+          '--no-first-run',
+          '--no-default-browser-check',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding'
+        ]
+      });
+      console.log('Using Chromium browser');
+    }
 
     this.context = await this.browser.newContext({
       viewport: { width: 1920, height: 1080 },
@@ -30,6 +52,11 @@ export class BrowserAutomation extends EventEmitter {
     });
 
     this.mainPage = await this.context.newPage();
+
+    // Prevent browser from closing accidentally
+    this.browser.on('disconnected', () => {
+      console.log('Browser disconnected!');
+    });
 
     // Listen for new pages (potential raids)
     this.context.on('page', async (page) => {
@@ -45,15 +72,22 @@ export class BrowserAutomation extends EventEmitter {
     }
 
     try {
-      await this.mainPage.goto('https://www.twitch.tv/login');
-      await this.mainPage.waitForTimeout(2000);
+      console.log('Navigating to Twitch login page...');
+      await this.mainPage.goto('https://www.twitch.tv/login', {
+        waitUntil: 'domcontentloaded',
+        timeout: 30000
+      });
+      await this.mainPage.waitForTimeout(3000);
 
-      // Fill in login form
+      console.log('Filling login form...');
+      // Wait for input fields to be available
+      await this.mainPage.waitForSelector('input[autocomplete="username"]', { timeout: 10000 });
       await this.mainPage.fill('input[autocomplete="username"]', username);
       await this.mainPage.fill('input[autocomplete="current-password"]', password);
 
+      console.log('Submitting login...');
       await this.mainPage.click('button[type="submit"]');
-      await this.mainPage.waitForTimeout(3000);
+      await this.mainPage.waitForTimeout(4000);
 
       // Check if 2FA is required
       const has2FA = await this.mainPage.$('input[autocomplete="one-time-code"]').catch(() => null);
@@ -65,7 +99,11 @@ export class BrowserAutomation extends EventEmitter {
         // Wait for user to manually enter 2FA code (up to 5 minutes)
         // The browser window is visible so they can enter it
         try {
-          await this.mainPage.waitForNavigation({ timeout: 300000, waitUntil: 'networkidle' });
+          await this.mainPage.waitForNavigation({
+            timeout: 300000,
+            waitUntil: 'domcontentloaded'
+          });
+          console.log('2FA completed');
         } catch (timeoutError) {
           console.log('2FA timeout - user did not complete authentication');
           return false;
@@ -77,15 +115,19 @@ export class BrowserAutomation extends EventEmitter {
 
       // Check if login was successful
       const currentUrl = this.mainPage.url();
+      console.log('Current URL after login:', currentUrl);
+
       if (!currentUrl.includes('/login')) {
         this.isAuthenticated = true;
         this.emit('authenticated');
+        console.log('Login successful!');
         return true;
       }
 
+      console.log('Login failed - still on login page');
       return false;
-    } catch (error) {
-      console.error('Login error:', error);
+    } catch (error: any) {
+      console.error('Login error:', error.message);
       return false;
     }
   }
