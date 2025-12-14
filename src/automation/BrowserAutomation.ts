@@ -48,7 +48,27 @@ export class BrowserAutomation extends EventEmitter {
       await this.mainPage.fill('input[autocomplete="current-password"]', password);
 
       await this.mainPage.click('button[type="submit"]');
-      await this.mainPage.waitForTimeout(5000);
+      await this.mainPage.waitForTimeout(3000);
+
+      // Check if 2FA is required
+      const has2FA = await this.mainPage.$('input[autocomplete="one-time-code"]').catch(() => null);
+
+      if (has2FA) {
+        console.log('2FA detected - waiting for user to enter code...');
+        this.emit('2faRequired');
+
+        // Wait for user to manually enter 2FA code (up to 5 minutes)
+        // The browser window is visible so they can enter it
+        try {
+          await this.mainPage.waitForNavigation({ timeout: 300000, waitUntil: 'networkidle' });
+        } catch (timeoutError) {
+          console.log('2FA timeout - user did not complete authentication');
+          return false;
+        }
+      }
+
+      // Wait a bit for navigation to complete
+      await this.mainPage.waitForTimeout(3000);
 
       // Check if login was successful
       const currentUrl = this.mainPage.url();
