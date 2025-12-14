@@ -285,12 +285,12 @@ export class TwitchAPI {
       const maxIterations = 10; // Fetch up to 1000 drops (100 per page)
 
       while (hasMore && iterations < maxIterations) {
-        const response = await this.gqlClient.post('', {
+        const response: any = await this.gqlClient.post('', {
           query,
           variables: { limit, cursor }
         });
 
-        const data = response.data.data.currentUser?.inventory?.gameEventDrops;
+        const data: any = response.data.data.currentUser?.inventory?.gameEventDrops;
         if (!data || !data.edges || data.edges.length === 0) {
           break;
         }
