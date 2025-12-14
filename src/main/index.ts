@@ -25,12 +25,12 @@ function createWindow() {
   });
 
   // Load the UI
-  if (process.env.NODE_ENV === 'development') {
-    mainWindow.loadURL('http://localhost:5173');
-    mainWindow.webContents.openDevTools();
-  } else {
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
-  }
+  // Always load from src/renderer for development
+  const rendererPath = path.join(app.getAppPath(), 'src', 'renderer', 'index.html');
+  mainWindow.loadFile(rendererPath);
+
+  // Open dev tools for debugging
+  mainWindow.webContents.openDevTools();
 
   mainWindow.on('closed', () => {
     mainWindow = null;

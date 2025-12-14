@@ -3,10 +3,13 @@
 ## Installation
 
 ```bash
-# 1. Install all dependencies (including wait-on)
+# 1. Install all dependencies
 npm install
 
-# 2. If you get security vulnerabilities, you can fix them (optional)
+# 2. Install Playwright browsers (required for automation)
+npx playwright install chromium
+
+# 3. If you get security vulnerabilities, you can fix them (optional)
 npm audit fix
 ```
 
