@@ -62,12 +62,40 @@ Then run:
 npm start
 ```
 
+### Error: "Module was compiled against a different Node.js version"
+
+This happens with **better-sqlite3** (native module) when it's compiled for Node.js but you're using Electron.
+
+**Solution:** Rebuild native modules for Electron:
+
+```bash
+npm install electron-rebuild --save-dev
+npm run rebuild
+```
+
+Or automatically (already configured in package.json):
+
+```bash
+npm install
+# This will automatically rebuild after install via postinstall script
+```
+
+### Error: "Unable to load preload script"
+
+**Solution:** This has been fixed in the latest version. Pull the latest changes:
+
+```bash
+git pull origin claude/twitch-auto-drop-raids-eDxLL
+npm run build:main
+npm start
+```
+
 ### Error: Missing dependencies
 
 **Solution:** Install the new dependencies:
 
 ```bash
-npm install wait-on concurrently --save-dev
+npm install wait-on concurrently electron-rebuild --save-dev
 ```
 
 ### Security Vulnerabilities Warning
