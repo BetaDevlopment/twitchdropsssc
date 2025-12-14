@@ -11,11 +11,16 @@ export class BrowserAutomation extends EventEmitter {
   private checkInterval: NodeJS.Timeout | null = null;
 
   async initialize(): Promise<void> {
+    // Launch Chrome using system installation (not Chromium)
+    // This will use your regular Chrome browser
     this.browser = await chromium.launch({
+      channel: 'chrome', // Use system Chrome instead of Chromium
       headless: false,
       args: [
         '--disable-blink-features=AutomationControlled',
-        '--disable-dev-shm-usage'
+        '--disable-dev-shm-usage',
+        '--no-first-run',
+        '--no-default-browser-check'
       ]
     });
 
