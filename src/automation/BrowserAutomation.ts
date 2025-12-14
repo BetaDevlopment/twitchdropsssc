@@ -164,53 +164,6 @@ export class BrowserAutomation extends EventEmitter {
 
     this.emit('initialized');
   }
-      this.mainPage.once('load', async () => {
-        try {
-          await this.mainPage!.evaluate(() => {
-            const banner = document.createElement('div');
-            banner.style.cssText = `
-              position: fixed;
-              top: 0;
-              left: 0;
-              right: 0;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              color: white;
-              padding: 12px 20px;
-              text-align: center;
-              font-family: Arial, sans-serif;
-              font-size: 14px;
-              font-weight: bold;
-              z-index: 999999;
-              box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            `;
-            banner.innerHTML = '✓ Your Google Chrome is now connected to Twitch Drops Automation';
-            document.body.appendChild(banner);
-
-            // Fade out and remove banner after 5 seconds
-            setTimeout(() => {
-              banner.style.transition = 'opacity 0.5s';
-              banner.style.opacity = '0';
-              setTimeout(() => banner.remove(), 500);
-            }, 5000);
-          });
-        } catch (e) {
-          // Banner injection failed, not critical
-        }
-      });
-    }
-
-    // Prevent browser from closing accidentally
-    this.browser.on('disconnected', () => {
-      console.log('Browser disconnected!');
-    });
-
-    // Listen for new pages (potential raids)
-    this.context.on('page', async (page) => {
-      console.log('New page detected:', await page.title());
-    });
-
-    this.emit('initialized');
-  }
 
   async login(username: string, password: string): Promise<boolean> {
     if (!this.mainPage) {
